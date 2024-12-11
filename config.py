@@ -2,8 +2,8 @@
 # 通过配置文件来自定义 OpenAI (或支持OpenAI接口规范的)的模型。
 AI_CONFIG = {
     "base_url": "https://open.bigmodel.cn/api/paas/v4/",
-    "api_key":
-    "7ecd4f215557fbfdd5c9f120ef703579.Qc14xlR8blQdGKj3",  # 替换为你的 API 密钥
+    # "api_key":
+    # "7ecd4f215557fbfdd5c9f120ef703579.Qc14xlR8blQdGKj3",  # 替换为你的 API 密钥
     "model": "glm-4-flash"
 }
 

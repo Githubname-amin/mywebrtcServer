@@ -30,6 +30,7 @@ async def transcribe_audio(file_path: str) -> list:
                 "text": segment.text
             })
 
+            # 使用 await asyncio.sleep(0) 给事件循环一个机会来检查停止信号
             await asyncio.sleep(0)
 
         current_file = None
@@ -38,7 +39,13 @@ async def transcribe_audio(file_path: str) -> list:
     except asyncio.CancelledError:
         should_stop = True
         current_file = None
-
+        raise
     finally:
         should_stop = False
         current_file = None
+
+
+# 用于外界终端当前转录任务
+def stop_transcription() -> None:
+    global should_stop
+    should_stop = True

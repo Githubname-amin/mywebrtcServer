@@ -1,10 +1,10 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
 import asyncio
 
-from mywebrtcServer.services.stt_service import transcribe_audio
+from mywebrtcServer.services.stt_service import transcribe_audio, stop_transcription
 
 app = FastAPI()
 
@@ -54,7 +54,7 @@ async def upload_file(file: UploadFile = File()):
                                     'status':
                                     'interrupted',
                                     "detail":
-                                    "Transcription interrupted,asyncio error"
+                                    "Transcription interrupted,asyncio error1"
                                 })
     except asyncio.CancelledError:
         return JSONResponse(status_code=499,
@@ -63,3 +63,30 @@ async def upload_file(file: UploadFile = File()):
                                 "detail":
                                 "Transcription interrupted,asyncio error"
                             })
+    # 兜底错误
+    except Exception as e:
+        if transcription_task and not transcription_task.cancelled():
+            transcription_task.cancel()
+        transcription_task = None
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/stop-transcribe")
+async def stopupload_file():
+    global transcription_task
+    try:
+        # 如果当前有任务正在转录，那么需要中断他
+        stop_transcription()
+
+        if transcription_task is not None and not transcription_task.cancelled(
+        ):
+            transcription_task.cancel()
+            try:
+                asyncio.run(asyncio.wait_for(transcription_task, timeout=0.5))
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass  # 如果任务超时，忽略异常，任务可能仍在处理，但我们已经取消了它
+            transcription_task = None
+        return {"status": "success", "message": "Transcription stopped"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
