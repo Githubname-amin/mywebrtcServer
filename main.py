@@ -1,9 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 import os
 import asyncio
+from pydantic import BaseModel
+from datetime import datetime
+import tempfile
 
+from mywebrtcServer.services.ai_service import generate_summary
 from mywebrtcServer.services.stt_service import transcribe_audio, stop_transcription
 
 app = FastAPI()
@@ -21,6 +25,11 @@ app.add_middleware(
 transcription_task = None
 
 
+class TextRequest(BaseModel):
+    text: str
+
+
+# 转录接口
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File()):
     print('我的接口')
@@ -71,6 +80,7 @@ async def upload_file(file: UploadFile = File()):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# 停止转录
 @app.post("/api/stop-transcribe")
 async def stopupload_file():
     global transcription_task
@@ -87,6 +97,46 @@ async def stopupload_file():
                 pass  # 如果任务超时，忽略异常，任务可能仍在处理，但我们已经取消了它
             transcription_task = None
         return {"status": "success", "message": "Transcription stopped"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# 生成总结
+@app.post("/api/summary")
+async def get_summary(request: TextRequest):
+
+    async def generateFn():
+        async for chunk in generate_summary(request.text):
+            yield chunk
+
+    return StreamingResponse(generateFn(), media_type="text/plain")
+
+
+# 导出总结
+class SummaryRequest(BaseModel):
+    text: str
+    type: str
+
+
+@app.post("/api/export/summary")
+async def export_summary(request: SummaryRequest):
+    summary = request.text
+    type = request.type
+    try:
+        # 生成文件名
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"summary_{timestamp}_{type}.md"
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(suffix=".md",
+                                         delete=False) as temp_file:
+            temp_file.write(summary.encode("utf-8"))
+            temp_file.flush()
+
+            return FileResponse(path=temp_file.name,
+                                filename=filename,
+                                media_type="text/markdown",
+                                background=None)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
