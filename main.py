@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import tempfile
 
-from mywebrtcServer.services.ai_service import generate_summary
+from mywebrtcServer.services.ai_service import generate_summary, generate_detail_summary
 from mywebrtcServer.services.stt_service import transcribe_audio, stop_transcription
 
 app = FastAPI()
@@ -140,3 +140,17 @@ async def export_summary(request: SummaryRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# 生成详细总结
+class DetailSummaryRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/detailSummary")
+async def get_detail_summary(request: TextRequest):
+    async def generateDetailFn():
+        async for chunk in generate_detail_summary(request.text):
+            yield chunk
+
+    return StreamingResponse(generateDetailFn(), media_type="text/plain")
