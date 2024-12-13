@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import tempfile
 
-from mywebrtcServer.services.ai_service import generate_summary, generate_detail_summary
+from mywebrtcServer.services.ai_service import generate_mindmap, generate_summary, generate_detail_summary
 from mywebrtcServer.services.stt_service import transcribe_audio, stop_transcription
 
 app = FastAPI()
@@ -149,8 +149,19 @@ class DetailSummaryRequest(BaseModel):
 
 @app.post("/api/detailSummary")
 async def get_detail_summary(request: TextRequest):
+
     async def generateDetailFn():
         async for chunk in generate_detail_summary(request.text):
             yield chunk
 
     return StreamingResponse(generateDetailFn(), media_type="text/plain")
+
+
+# 生成思维导图
+@app.post("/api/mindmap")
+async def get_mindmap(request: TextRequest):
+    try:
+        mindmap_json = await generate_mindmap(request.text)
+        return {"mindmap": mindmap_json}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
