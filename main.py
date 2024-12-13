@@ -6,8 +6,9 @@ import asyncio
 from pydantic import BaseModel
 from datetime import datetime
 import tempfile
+from typing import List, Optional
 
-from mywebrtcServer.services.ai_service import generate_mindmap, generate_summary, generate_detail_summary
+from mywebrtcServer.services.ai_service import ChatMessage, chat_with_model, generate_mindmap, generate_summary, generate_detail_summary
 from mywebrtcServer.services.stt_service import transcribe_audio, stop_transcription
 
 app = FastAPI()
@@ -165,3 +166,21 @@ async def get_mindmap(request: TextRequest):
         return {"mindmap": mindmap_json}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# 对话
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    context: str
+
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+
+    async def generate():
+        async for chunk in chat_with_model(request.messages, request.context):
+            yield chunk
+
+    return StreamingResponse(generate(), media_type="text/plain")

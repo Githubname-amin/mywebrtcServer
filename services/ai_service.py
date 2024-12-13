@@ -1,11 +1,18 @@
+from typing import List
 from openai import AsyncOpenAI
 import json
+from pydantic import BaseModel
 
 from mywebrtcServer.config import AI_CONFIG
 
 # 配置OpenAI
 client = AsyncOpenAI(base_url=AI_CONFIG["base_url"],
                      api_key=AI_CONFIG["api_key"])
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
 
 
 async def generate_summary(text: str) -> None:
@@ -192,3 +199,27 @@ async def generate_mindmap(text: str) -> None:
         print('API 调用报错', e)
         print("错误类型", type(e))
         raise
+
+
+# 对话
+async def chat_with_model(messages: List[ChatMessage], context: str):
+    # 将上下文添加到消息列表中
+    full_messages = [{
+        "role": "system",
+        "content": f"以下是上下文信息:\n{context}\n请基于上述上下文回答用户的问题"
+    }]
+    for message in messages:
+        full_messages.append({
+            "role": message.role,
+            "content": message.content
+        })
+
+    response = await client.chat.completions.create(
+        model=AI_CONFIG["model"],
+        messages=full_messages,
+        stream=True,
+    )
+
+    async for chunk in response:
+        if chunk.choices[0].delta.content is not None:
+            yield chunk.choices[0].delta.content
