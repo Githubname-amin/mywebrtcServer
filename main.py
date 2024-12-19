@@ -9,6 +9,7 @@ import tempfile
 from typing import List, Optional
 
 from mywebrtcServer.services.ai_service import ChatMessage, chat_with_model, generate_mindmap, generate_summary, generate_detail_summary
+from mywebrtcServer.services.ali_ai_service import transcribe_audio_ali
 from mywebrtcServer.services.stt_service import transcribe_audio, stop_transcription
 
 app = FastAPI()
@@ -43,7 +44,6 @@ async def upload_file(file: UploadFile = File()):
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
-
         # 创建转录任务
         transcription_task = asyncio.create_task(transcribe_audio(file_path))
 
@@ -184,3 +184,78 @@ async def chat(request: ChatRequest):
             yield chunk
 
     return StreamingResponse(generate(), media_type="text/plain")
+
+
+@app.post("/api/transcribe_ali")
+async def chat(file: UploadFile = File()):
+    print('我的接口')
+    global transcription_task
+    try:
+        # 先在本地存档上传的文件
+        file_path = f"uploads/{file.filename}"
+        os.makedirs("uploads", exist_ok=True)
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        print('??')
+        # 创建转录任务
+        # transcription_task = asyncio.create_task(
+        #     transcribe_audio_ali(file_path))
+        # print('执行成功', transcription_task)
+        try:
+            
+            transcription = await transcribe_audio_ali(file_path)
+            
+            # transcription = await transcription_task
+            # transcription_task = None
+            # 如果转录成功了直接返回结果
+            # return {"transcription": transcription}
+            
+            return transcription
+        
+            # 不能这么写，这么写是直接返回了整个流式任务给前端，应该是要把内容处理成ReadableStream格式fanhui
+            # return StreamingResponse(transcription_task,
+            #                          media_type="text/plain; charset=utf-8")
+            # async def generate_transcription_steam():
+            #     async for chunk in transcribe_audio_ali(file_path):
+            #         yield chunk  # 逐个数据块返回
+
+            # return StreamingResponse(generate_transcription_steam(),
+            #                          media_type="text/plain; charset=utf-8")
+
+        except asyncio.CancelledError:
+            # 确保任务被正确取消
+            if not transcription_task.cancelled():
+                transcription_task.cancel()
+            transcription_task = None
+            # 返回特定的状态码和信息
+            return JSONResponse(status_code=499,
+                                content={
+                                    'status':
+                                    'interrupted',
+                                    "detail":
+                                    "Transcription interrupted,asyncio error1"
+                                })
+
+    except asyncio.CancelledError:
+        # 确保任务被正确取消
+        if not transcription_task.cancelled():
+            transcription_task.cancel()
+        transcription_task = None
+        # 返回特定的状态码和信息
+        print('错误')
+        return JSONResponse(status_code=499,
+                            content={
+                                'status':
+                                'interrupted',
+                                "detail":
+                                "Transcription interrupted,asyncio error2"
+                            })
+
+    # 兜底错误
+    except Exception as e:
+        print('兜底错误')
+        if transcription_task and not transcription_task.cancelled():
+            transcription_task.cancel()
+        transcription_task = None
+        raise HTTPException(status_code=500, detail=str(e))

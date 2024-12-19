@@ -2,7 +2,7 @@ from faster_whisper import WhisperModel
 from mywebrtcServer.config import STT_CONFIG
 import asyncio
 
-model = WhisperModel(STT_CONFIG["whisper_model"])
+model = WhisperModel(STT_CONFIG["whisper_model"], device="cuda")
 
 # 全局变量来跟踪转录状态
 should_stop = False
@@ -15,7 +15,7 @@ async def transcribe_audio(file_path: str) -> list:
     should_stop = False
     current_file = file_path
     try:
-        segments_generator = model.transcribe(file_path, beam_size=1)
+        segments_generator = model.transcribe(file_path, beam_size=10)
         transcription = []
         segments, info = segments_generator
 

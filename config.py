@@ -14,5 +14,5 @@ AI_CONFIG = {
 # small/medium: 更高的准确度，但需要更多资源
 # large: 最高准确度，但需要最多资源
 STT_CONFIG = {
-    "whisper_model": "tiny"  # 可选值: tiny, base, small, medium, large
+    "whisper_model": "large"  # 可选值: tiny, base, small, medium, large
 }
